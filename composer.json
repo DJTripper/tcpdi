@@ -12,6 +12,8 @@
 		"homepage": "http://nicolaasuni.tecnick.com"
 	}
 	],
+	"minimum-stability": "dev",
+	"prefer-stable": true,
 	"require": {
 		"php": ">=7.2.0",
         	"tecnickcom/tcpdf": "6.2.*"
