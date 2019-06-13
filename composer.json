@@ -1,6 +1,6 @@
 {
 	"name": "mrpamacs/tcpdi",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"type": "library",
 	"description": "TCPDI is a PHP class for importing PDF to use with TCPDF",
 	"keywords": ["PDF", "tcpdi", "tcpdi_parser", "tcpdf"],
