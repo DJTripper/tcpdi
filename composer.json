@@ -19,6 +19,5 @@
             		"tcpdi.php",
             		"tcpdi_parser.php"
 		]
-	},
-	"minimum-stability": "dev"
+	}
 }
