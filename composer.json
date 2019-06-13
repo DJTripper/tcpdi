@@ -14,7 +14,7 @@
 	],
 	"require": {
 		"php": ">=7.2.0",
-        	"tecnickcom/tcpdf": "6.2.*"
+		"tecnickcom/tcpdf": "6.2.*"
 	},
 	"autoload": {
 		"classmap": [
@@ -23,6 +23,6 @@
             		"tcpdi_parser.php"
 		]
 	},
-	"minimum-stability": "dev",
+	"minimum-stability": "stable",
 	"prefer-stable": true
 }
