@@ -22,5 +22,8 @@
 			"tcpdi.php",
 			"tcpdi_parser.php"
 		]
-	}
+	},
+	"repositories": [
+		{ "type": "vcs", "url": "https://github.com/mrpamacs/tcpdi"}
+	]
 }
