@@ -481,7 +481,7 @@ class TCPDI extends FPDF_TPL {
                 // A dictionary.
                 $this->_straightOut('<<');
 
-                reset ($value[1]); 
+                reset ($value[1]);
 
                 foreach($value[1] as $k =>$v) {
                     $this->_straightOut($k . ' ');
