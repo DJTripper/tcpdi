@@ -1,9 +1,9 @@
 <?php
 //============================================================+
 // File name   : tcpdi_parser.php
-// Version     : 1.0
+// Version     : 1.1
 // Begin       : 2013-09-25
-// Last Update : 2013-09-25
+// Last Update : 2016-05-03
 // Author      : Paul Nicholls - https://github.com/pauln
 // License     : GNU-LGPL v3 (http://www.gnu.org/copyleft/lesser.html)
 //
@@ -44,8 +44,11 @@
  * This is a PHP class for parsing PDF documents.<br>
  * @author Paul Nicholls
  * @author Nicola Asuni
- * @version 1.0
+ * @version 1.1
  */
+
+// include class for decoding filters
+//require_once(dirname(__FILE__).'/include/tcpdf_filters.php');
 
 if (!defined ('PDF_TYPE_NULL'))
     define ('PDF_TYPE_NULL', 0);
@@ -79,7 +82,7 @@ if (!defined ('PDF_TYPE_REAL'))
  * This is a PHP class for parsing PDF documents.<br>
  * Based on TCPDF_PARSER, part of the TCPDF project by Nicola Asuni.
  * @brief This is a PHP class for parsing PDF documents..
- * @version 1.0
+ * @version 1.1
  * @author Paul Nicholls - github.com/pauln
  * @author Nicola Asuni - info@tecnick.com
  */
@@ -144,25 +147,25 @@ class tcpdi_parser {
      * @private array
      */
     private $pages;
-    
+
     /**
      * Page count
      * @private integer
      */
     private $page_count;
-    
+
     /**
      * actual page number
      * @private integer
      */
     private $pageno;
-        
+
     /**
      * PDF version of the loaded document
      * @private string
      */
     private $pdfVersion;
-    
+
     /**
      * Available BoxTypes
      *
@@ -232,7 +235,7 @@ class tcpdi_parser {
     public function getParsedData() {
         return array($this->xref, $this->objects, $this->pages);
     }
-    
+
     /**
      * Get PDF-Version
      *
@@ -245,7 +248,7 @@ class tcpdi_parser {
             $this->pdfVersion = $m[0];
         return $this->pdfVersion;
     }
-    
+
     /**
      * Read all /Page(es)
      *
@@ -253,12 +256,10 @@ class tcpdi_parser {
     function readPages() {
         $params = $this->getObjectVal($this->xref['trailer'][1]['/Root']);
         $objref = null;
-        if ($params && $params[1] && is_array($params[1][1])) {
-            foreach ($params[1][1] as $k=>$v) {
-                if ($k == '/Pages') {
-                    $objref = $v;
-                    break;
-                }
+        foreach ($params[1][1] as $k=>$v) {
+            if ($k == '/Pages') {
+                $objref = $v;
+                break;
             }
         }
         if ($objref == null || $objref[0] !== PDF_TYPE_OBJREF) {
@@ -289,7 +290,7 @@ class tcpdi_parser {
 
         $this->page_count = count($this->pages);
     }
-    
+
     /**
      * Read a single /Page element, recursing through /Kids if necessary
      *
@@ -305,7 +306,7 @@ class tcpdi_parser {
             $this->pages[] = $page;
         }
     }
-    
+
     /**
      * Get pagecount from sourcefile
      *
@@ -326,7 +327,7 @@ class tcpdi_parser {
     protected function getXrefData($offset=0, $xref=array()) {
         if ($offset == 0) {
             // find last startxref
-            if (preg_match('/.*[\r\n]startxref[\s]*[\r\n]+([0-9]+)[\s]*[\r\n]+%%EOF/is', $this->pdfdata, $matches) == 0) {
+            if (preg_match('/.*[\r\n]startxref[\s\r\n]+([0-9]+)[\s\r\n]+%%EOF/is', $this->pdfdata, $matches) == 0) {
                 $this->Error('Unable to find startxref');
             }
             $startxref = $matches[1];
@@ -334,7 +335,7 @@ class tcpdi_parser {
             if (preg_match('/([0-9]+[\s][0-9]+[\s]obj)/i', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $offset)) {
                 // Cross-Reference Stream object
                 $startxref = $offset;
-            } elseif (preg_match('/[\r\n]startxref[\s]*[\r\n]+([0-9]+)[\s]*[\r\n]+%%EOF/i', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+            } elseif (preg_match('/[\r\n]startxref[\s\r\n]+([0-9]+)[\s\r\n]+%%EOF/i', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $offset)) {
                 // startxref found
                 $startxref = $matches[1][0];
             } else {
@@ -404,7 +405,7 @@ class tcpdi_parser {
         unset($matches);
         $xref['max_object'] = max($xref['max_object'], $obj_num);
         // get trailer data
-        if (preg_match('/trailer[\s]*<<(.*)>>[\s]*[\r\n]+(?:[^\r\n]*[\r\n]+)*startxref[\s]*[\r\n]+/isU', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $xoffset) > 0) {
+        if (preg_match('/trailer[\s]*<<(.*)>>[\s\r\n]+(?:[%].*[\r\n]+)*startxref[\s\r\n]+/isU', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $xoffset) > 0) {
             $trailer_data = $matches[1][0];
             if (!isset($xref['trailer']) OR empty($xref['trailer'])) {
                 // get only the last updated version
@@ -541,6 +542,10 @@ class tcpdi_parser {
                 }
                 // for each byte on the row
                 for ($i=1; $i<=$columns; ++$i) {
+                    if (!isset($row[$i])) {
+                        // No more data in this row - we're done here.
+                        break;
+                    }
                     // new index
                     $j = ($i - 1);
                     $row_up = $prev_row[$j];
@@ -618,7 +623,9 @@ class tcpdi_parser {
                 for ($c = 0; $c < 3; ++$c) {
                     // for every byte on the column
                     for ($b = 0; $b < $wb[$c]; ++$b) {
-                        $sdata[$k][$c] += ($row[$i] << (($wb[$c] - 1 - $b) * 8));
+                        if (isset($row[$i])) {
+                            $sdata[$k][$c] += ($row[$i] << (($wb[$c] - 1 - $b) * 8));
+                        }
                         ++$i;
                     }
                 }
@@ -678,6 +685,7 @@ class tcpdi_parser {
     protected function getRawStream($offset, $length) {
         $offset += strspn($this->pdfdata, "\x00\x09\x0a\x0c\x0d\x20", $offset);
         $offset += 6; // "stream"
+        $offset += strspn($this->pdfdata, "\x20", $offset);
         $offset += strspn($this->pdfdata, "\r\n", $offset);
 
         $obj = array();
@@ -713,8 +721,10 @@ class tcpdi_parser {
                 $next = strcspn($data, "\r\n", $offset);
                 if ($next > 0) {
                     $offset += $next;
-                    list($obj, $unused) = $this->getRawObject($offset, $data);
-                    return $obj;
+                    //list($obj, $unused) = $this->getRawObject($offset, $data);
+                    //return $obj;
+
+                    return $this->getRawObject($offset, $data);
                 }
                 break;
             }
@@ -911,7 +921,7 @@ class tcpdi_parser {
             unset($key);
             unset($element);
         } while (true);
-        
+
         return array($objval, $offset);
     }
 
@@ -1024,7 +1034,7 @@ class tcpdi_parser {
         }
         return $obj;
     }
-    
+
     /**
      * Extract object stream to find out what it contains.
      *
@@ -1038,7 +1048,7 @@ class tcpdi_parser {
         }
         $stream = $this->decodeStream($obj[1][1], $obj[2][1]);// Decode object stream, as we need the first bit
         $first = intval($obj[1][1]['/First'][1]);
-        $ints = explode(' ', substr($stream[0], 0, $first)); // Get list of object / offset pairs
+        $ints = preg_split('/\s/', substr($stream[0], 0, $first)); // Get list of object / offset pairs
         for ($j=1; $j<count($ints); $j++) {
             if (($j % 2) == 1) {
                 $this->objstreamobjs[$ints[$j-1]] = array($key, $ints[$j]+$first);
@@ -1058,16 +1068,27 @@ class tcpdi_parser {
         $this->objoffsets = array();
         if (preg_match_all('/(*ANYCRLF)^[\s]*([0-9]+)[\s]+([0-9]+)[\s]+obj/im', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE) >= 1) {
             $i = 0;
+            $laststreamend = 0;
             foreach($matches[0] as $match) {
                 $offset = $match[1] + strspn($match[0], "\x00\x09\x0a\x0c\x0d\x20");
+                if ($offset < $laststreamend) {
+                    // Contained within another stream, skip it.
+                    continue;
+                }
                 $this->objoffsets[trim($match[0])] = $offset;
                 $dictoffset = $match[1] + strlen($match[0]);
-                if (preg_match('|^\s+<<[^>]+/ObjStm|', substr($this->pdfdata, $dictoffset, 256), $objstm) == 1) {
+                $dictfrag = substr($this->pdfdata, $dictoffset, 256);
+                if (preg_match('|^\s+<<[^>]+/Length\s+(\d+)|', $dictfrag, $lengthmatch, PREG_OFFSET_CAPTURE) == 1) {
+                    $laststreamend += intval($lengthmatch[1][0]);
+                }
+                if (preg_match('|^\s+<<[^>]+/ObjStm|', $dictfrag, $objstm) == 1) {
                     $this->extractObjectStream(array($matches[1][$i][0], $matches[2][$i][0]));
                 }
                 $i++;
             }
         }
+        unset($lengthmatch);
+        unset($dictfrag);
         unset($matches);
     }
 
@@ -1161,7 +1182,7 @@ class tcpdi_parser {
 
         $this->pageno = $pageno;
     }
-    
+
     /**
      * Get page-resources from current page
      *
@@ -1170,7 +1191,7 @@ class tcpdi_parser {
     public function getPageResources() {
         return $this->_getPageResources($this->pages[$this->pageno]);
     }
-    
+
     /**
      * Get page-resources from /Page
      *
@@ -1200,6 +1221,42 @@ class tcpdi_parser {
         }
     }
 
+    /**
+     * Get annotations from current page
+     *
+     * @return array
+     */
+    public function getPageAnnotations() {
+        return $this->_getPageAnnotations($this->pages[$this->pageno]);
+    }
+
+    /**
+     * Get annotations from /Page
+     *
+     * @param array $obj Array of pdf-data
+     */
+    private function _getPageAnnotations ($obj) { // $obj = /Page
+        $obj = $this->getObjectVal($obj);
+
+        // If the current object has an annotations
+        // dictionary associated with it, we use
+        // it. Otherwise, we move back to its
+        // parent object.
+        if (isset ($obj[1][1]['/Annots'])) {
+            $annots = $obj[1][1]['/Annots'];
+        } else {
+            if (!isset ($obj[1][1]['/Parent'])) {
+                return false;
+            } else {
+                $annots = $this->_getPageAnnotations($obj[1][1]['/Parent']);
+            }
+        }
+
+        if ($annots[0] == PDF_TYPE_OBJREF)
+            return $this->getObjectVal($annots);
+        return $annots;
+    }
+
 
     /**
      * Get content of current page
@@ -1210,18 +1267,18 @@ class tcpdi_parser {
      */
     public function getContent() {
         $buffer = '';
-        
+
         if (isset($this->pages[$this->pageno][1][1]['/Contents'])) {
             $contents = $this->_getPageContent($this->pages[$this->pageno][1][1]['/Contents']);
             foreach($contents AS $tmp_content) {
                 $buffer .= $this->_rebuildContentStream($tmp_content) . ' ';
             }
         }
-        
+
         return $buffer;
     }
-    
-    
+
+
     /**
      * Resolve all content-objects
      *
@@ -1230,7 +1287,7 @@ class tcpdi_parser {
      */
     private function _getPageContent($content_ref) {
         $contents = array();
-        
+
         if ($content_ref[0] == PDF_TYPE_OBJREF) {
             $content = $this->getObjectVal($content_ref);
             if ($content[1][0] == PDF_TYPE_ARRAY) {
@@ -1256,7 +1313,7 @@ class tcpdi_parser {
      */
     private function _rebuildContentStream($obj) {
         $filters = array();
-        
+
         if (isset($obj[1][1]['/Filter'])) {
             $_filter = $obj[1][1]['/Filter'];
 
@@ -1264,7 +1321,7 @@ class tcpdi_parser {
                 $tmpFilter = $this->getObjectVal($_filter);
                 $_filter = $tmpFilter[1];
             }
-            
+
             if ($_filter[0] == PDF_TYPE_TOKEN) {
                 $filters[] = $_filter;
             } elseif ($_filter[0] == PDF_TYPE_ARRAY) {
@@ -1277,11 +1334,11 @@ class tcpdi_parser {
         foreach ($filters AS $_filter) {
             $stream = $this->FilterDecoders->decodeFilter($_filter[1], $stream);
         }
-        
+
         return $stream;
     }
-    
-    
+
+
     /**
      * Get a Box from a page
      * Arrayformat is same as used by fpdf_tpl
@@ -1296,12 +1353,12 @@ class tcpdi_parser {
         $box = null;
         if (isset($page[1][1][$box_index]))
             $box =& $page[1][1][$box_index];
-        
+
         if (!is_null($box) && $box[0] == PDF_TYPE_OBJREF) {
             $tmp_box = $this->getObjectVal($box);
             $box = $tmp_box[1];
         }
-            
+
         if (!is_null($box) && $box[0] == PDF_TYPE_ARRAY) {
             $b =& $box[1];
             return array('x' => $b[0][1] / $k,
@@ -1322,7 +1379,7 @@ class tcpdi_parser {
 
     /**
      * Get all page boxes by page no
-     * 
+     *
      * @param int The page number
      * @param float Scale factor from user space units to points
      * @return array
@@ -1330,7 +1387,7 @@ class tcpdi_parser {
     public function getPageBoxes($pageno, $k) {
         return $this->_getPageBoxes($this->pages[$pageno - 1], $k);
     }
-    
+
     /**
      * Get all boxes from /Page
      *
@@ -1358,7 +1415,7 @@ class tcpdi_parser {
     public function getPageRotation($pageno) {
         return $this->_getPageRotation($this->pages[$pageno - 1]);
     }
-    
+
     private function _getPageRotation($obj) { // $obj = /Page
         $obj = $this->getObjectVal($obj);
         if (isset ($obj[1][1]['/Rotate'])) {
@@ -1386,7 +1443,7 @@ class tcpdi_parser {
      */
     public function Error($msg) {
         // exit program and print error
-        die('<strong>TCPDF_PARSER ERROR: </strong>'.$msg);
+        die("<strong>TCPDI_PARSER ERROR [{$this->uniqueid}]: </strong>".$msg);
     }
 
 } // END OF TCPDF_PARSER CLASS
