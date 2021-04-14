@@ -14,7 +14,7 @@
 	],
 	"require": {
 		"php": ">=7.2.0",
-		"tecnickcom/tcpdf": "6.2.*"
+		"tecnickcom/tcpdf": "6.4.*"
 	},
 	"autoload": {
 		"classmap": [
